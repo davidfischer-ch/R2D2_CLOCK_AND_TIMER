@@ -70,6 +70,7 @@ void setup() {
   // pinMode(LIVENESS_LED_PIN, OUTPUT);
   pinMode(RED_LED_PIN, OUTPUT);
   pinMode(WHITE_LED_PIN, OUTPUT);
+ 
   // Configure LED PWM funtionalities
   if (!ledcAttach(RED_LED_PIN, 5000, 8)) {
     Serial.println(F("Unable to setup PWM for Red LED"));
@@ -110,16 +111,17 @@ void setup() {
   }
   Serial.println(F("DFPlayer Mini online."));
 
-  musicPlayer.volume(20);  //Set volume value. From 0 to 30
-  musicPlayer.play(1);     //Play the first mp3
-
   Serial.println(F("Configure rotary encoder..."));
   rotaryEncoder.begin();
   rotaryEncoder.setup(ReadEncoderISR);
-  rotaryEncoder.setBoundaries(0, 3500, true);  //minValue, maxValue, circleValues true|false (when max go to min and vice versa)
+  // minValue, maxValue, circleValues true|false (when max go to min and vice versa)
+  rotaryEncoder.setBoundaries(0, 3500, true);
   rotaryEncoder.setAcceleration(250);
 
   Serial.println(F("Starting!"));
+
+  musicPlayer.volume(20);  // Set volume value. From 0 to 30
+  musicPlayer.play(1);     // Play the first mp3
 }
 
 void loop() {
@@ -146,17 +148,18 @@ void loop() {
   Serial.println(currentMonth);
 
   if (musicPlayer.available()) {
-    PrintDetail(musicPlayer.readType(), musicPlayer.read());  //Print the detail message from DFPlayer to handle different errors and states.
+    // Print the detail message from DFPlayer to handle different errors and states.
+    PrintDetail(musicPlayer.readType(), musicPlayer.read());
   }
 
   btnState = digitalRead(ROTARY_ENCODER_BUTTON_PIN);
   ledcWrite(RED_LED_PIN, inc_red_led);
   digitalWrite(WHITE_LED_PIN, LOW);
 
-  //If we detect LOW signal, button is pressed
+  // If we detect LOW signal, button is pressed
   if (btnState == LOW) {
-    //if 50ms have passed since last LOW pulse, it means that the
-    //button has been pressed, released and pressed again
+    // If 50ms have passed since last LOW pulse, it means that the
+    // button has been pressed, released and pressed again
     if (millis() - lastButtonPress > 50) {
       Serial.println("Button pressed!");
       setupTimer();
