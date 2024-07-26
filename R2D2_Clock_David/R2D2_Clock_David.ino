@@ -53,12 +53,8 @@ NTPClient timeClient(ntpUDP, "pool.ntp.org", UTC_OFFSET_SECONDS *UTC);
 
 // Internal State
 
-float counter = 0;
-unsigned long lastButtonPress = 0;
-int btnState = 0;
-int secondes = 0;
-int minutes = 0;
-float inc_red_led = 0;
+unsigned long lastButtonPress  = 0;
+float         redLedLuminosity = 0;
 
 // -------------------------------------------------------------------------------------------------
 
@@ -153,12 +149,11 @@ void loop() {
     PrintDetail(musicPlayer.readType(), musicPlayer.read());
   }
 
-  btnState = digitalRead(ROTARY_ENCODER_BUTTON_PIN);
-  ledcWrite(RED_LED_PIN, inc_red_led);
+  ledcWrite(RED_LED_PIN, redLedLuminosity);
   digitalWrite(WHITE_LED_PIN, LOW);
 
   // If we detect LOW signal, button is pressed
-  if (btnState == LOW) {
+  if (digitalRead(ROTARY_ENCODER_BUTTON_PIN) == LOW) {
     // If 50ms have passed since last LOW pulse, it means that the
     // button has been pressed, released and pressed again
     if (millis() - lastButtonPress > 50) {
@@ -197,7 +192,8 @@ void setupTimer() {
   musicPlayer.play(2);
   delay(500);
 
-  btnState = digitalRead(ROTARY_ENCODER_BUTTON_PIN);
+  float counter = 0;
+
   while (digitalRead(ROTARY_ENCODER_BUTTON_PIN) == HIGH) {
 
     if (rotaryEncoder.encoderChanged()) {
@@ -208,10 +204,10 @@ void setupTimer() {
       Serial.println("button pressed");
     }
 
-    minutes = counter / 60;
-    secondes = ((counter / 60) - minutes) * 60;
+    int minutes = counter / 60;
+    int seconds = (counter / 60 - minutes) * 60;
     clockDisplay.showNumberDecEx(minutes, 0b01000000, true, 2, 0);
-    clockDisplay.showNumberDecEx(secondes, 0b01000000, true, 2, 2);
+    clockDisplay.showNumberDecEx(seconds, 0b01000000, true, 2, 2);
   }
   Countdown(counter);
   Serial.println("Sortie de la boucle");
@@ -220,16 +216,14 @@ void setupTimer() {
 void Countdown(float timerCounter) {
   musicPlayer.play(8);
   delay(1000);
-  btnState = digitalRead(ROTARY_ENCODER_BUTTON_PIN);
 
-  while (btnState == HIGH) {
-    btnState = digitalRead(ROTARY_ENCODER_BUTTON_PIN);
+  while (digitalRead(ROTARY_ENCODER_BUTTON_PIN) == HIGH) {
     for (int i = 10; i > 0; i--) {
       timerCounter -= 0.1;
-      minutes = timerCounter / 60;
-      secondes = ((timerCounter / 60) - minutes) * 60;
+      int minutes = timerCounter / 60;
+      int seconds = (timerCounter / 60 - minutes) * 60;
       clockDisplay.showNumberDecEx(minutes, 0b01000000, true, 2, 0);
-      clockDisplay.showNumberDecEx(secondes, 0b01000000, true, 2, 2);
+      clockDisplay.showNumberDecEx(seconds, 0b01000000, true, 2, 2);
       delay(70);
       digitalWrite(RED_LED_PIN, LOW);
     }
@@ -268,9 +262,8 @@ void Countdown(float timerCounter) {
         digitalWrite(WHITE_LED_PIN, LOW);
         WaitMilliseconds(random(10, 150));
       }
-      btnState = LOW;
-      counter = 0;
-    };
+      break;
+    }
   }
 }
 
