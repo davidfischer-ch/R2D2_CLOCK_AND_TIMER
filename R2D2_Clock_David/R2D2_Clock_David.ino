@@ -1,5 +1,6 @@
+#include "time.h"
+
 #include "WiFiManager.h"
-#include "NTPClient.h"
 #include "TM1637Display.h"
 #include "DFRobotDFPlayerMini.h"
 #include "AiEsp32RotaryEncoder.h"
@@ -36,7 +37,7 @@ void IRAM_ATTR ReadEncoderISR() {
 
 DFRobotDFPlayerMini musicPlayer;
 
-void PrintDetail(uint8_t type, int value);
+void printDetail(uint8_t type, int value);
 
 // Clock Display (4x 7 Digits)
 
@@ -45,11 +46,12 @@ TM1637Display clockDisplay(21, 22);
 
 // NTP Client
 
-const int  UTC                = 2;    // UTC + value in hour - Summer time
-const long UTC_OFFSET_SECONDS = 3600; // UTC + 2H / Offset in second
+const char* NTP_SERVER      = "pool.ntp.org";
+const long  GMT_OFFSET_SECS = 3600;
 
-WiFiUDP   ntpUDP;
-NTPClient timeClient(ntpUDP, "pool.ntp.org", UTC_OFFSET_SECONDS *UTC);
+long daylightOffsetSecs = 0;
+
+WiFiUDP ntpUDP;
 
 // Internal State
 
@@ -94,7 +96,19 @@ void setup() {
   Serial.println(F("DFRobot DFPlayer Mini Demo"));
   Serial.println(F("Initializing DFPlayer ... (May take 3~5 seconds)"));
 
-  timeClient.begin();
+  // TODO Handle changing daylight saving...
+  /* if ((month * 30 + day) >= 121 && (month * 30 + day) < 331) {
+    daylightOffsetSecs = 3600;
+    // Change daylight saving time - Summer - change 31/03 at 00:00
+    // timeClient.setTimeOffset(UTC_OFFSET_SECONDS * UTC);
+  } else {
+    daylightOffsetSecs = 0;
+    // Change daylight saving time - Winter - change 31/10 at 00:00
+    // timeClient.setTimeOffset((UTC_OFFSET_SECONDS * UTC) - 3600);
+  } */
+
+  configTime(GMT_OFFSET_SECS, daylightOffsetSecs, NTP_SERVER);
+
   FPSerial.begin(9600, SERIAL_8N1, 14, 12);
   if (!musicPlayer.begin(FPSerial)) {
     Serial.println(F("Unable to begin:"));
@@ -123,30 +137,17 @@ void setup() {
 void loop() {
   Serial.println(F("Loop!"));
 
-  timeClient.update();
-  uint8_t dots = (timeClient.getSeconds() % 2 == 0) ? 0b01000000 : 0;
-  clockDisplay.showNumberDecEx(timeClient.getHours(), dots, true, 2, 0);
-  clockDisplay.showNumberDecEx(timeClient.getMinutes(), dots, true, 2, 2);
+  // timeClient.update();
+  struct tm now = getTimeStruct();
 
-  // Retrieve and print current date time
-  unsigned long epoch = timeClient.getEpochTime();
-  struct tm *ptm = gmtime((time_t *)&epoch);
-  int year = ptm->tm_year + 1900;
-  int month = ptm->tm_mon + 1;
-  int day = ptm->tm_mday;
-
-  Serial.print("Date: ");
-  Serial.print(year);
-  Serial.print(month < 10 ? "-0" : "-");
-  Serial.print(month);
-  Serial.print(day < 10 ? "-0" : "-");
-  Serial.println(day);
-  Serial.print("Time: ");
-  Serial.println(timeClient.getFormattedTime());
+  uint8_t dots = (now.tm_sec % 2 == 0) ? 0b01000000 : 0;
+  clockDisplay.showNumberDecEx(now.tm_hour, dots, true, 2, 0);
+  clockDisplay.showNumberDecEx(now.tm_min,  dots, true, 2, 2);
+  printTime(now);
 
   if (musicPlayer.available()) {
     // Print the detail message from DFPlayer to handle different errors and states.
-    PrintDetail(musicPlayer.readType(), musicPlayer.read());
+    printDetail(musicPlayer.readType(), musicPlayer.read());
   }
 
   ledcWrite(RED_LED_PIN, redLedLuminosity);
@@ -170,15 +171,7 @@ void loop() {
     redLedLuminosity = 0;
   }
 
-  delay(100);
-
-  if ((month * 30 + day) >= 121 && (month * 30 + day) < 331) {
-    // Change daylight saving time - Summer - change 31/03 at 00:00
-    timeClient.setTimeOffset(UTC_OFFSET_SECONDS * UTC);
-  } else {
-    // Change daylight saving time - Winter - change 31/10 at 00:00
-    timeClient.setTimeOffset((UTC_OFFSET_SECONDS * UTC) - 3600);
-  }
+  delay(200);
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -192,89 +185,115 @@ void setupTimer() {
   musicPlayer.play(2);
   delay(500);
 
-  float counter = 0;
+  unsigned long waitTime = 0;
 
   while (digitalRead(ROTARY_ENCODER_BUTTON_PIN) == HIGH) {
 
     if (rotaryEncoder.encoderChanged()) {
       Serial.println(rotaryEncoder.readEncoder());
-      counter = rotaryEncoder.readEncoder();
+      waitTime = rotaryEncoder.readEncoder();
     }
     if (rotaryEncoder.isEncoderButtonClicked()) {
       Serial.println("button pressed");
     }
 
-    int minutes = counter / 60;
-    int seconds = (counter / 60 - minutes) * 60;
-    clockDisplay.showNumberDecEx(minutes, 0b01000000, true, 2, 0);
-    clockDisplay.showNumberDecEx(seconds, 0b01000000, true, 2, 2);
+    displayTime(waitTime);
   }
-  Countdown(counter);
+  countdown(waitTime);
   Serial.println("Sortie de la boucle");
 }
 
-void Countdown(float timerCounter) {
+void countdown(unsigned long waitTime) {
   musicPlayer.play(8);
   delay(1000);
 
-  while (digitalRead(ROTARY_ENCODER_BUTTON_PIN) == HIGH) {
-    for (int i = 10; i > 0; i--) {
-      timerCounter -= 0.1;
-      int minutes = timerCounter / 60;
-      int seconds = (timerCounter / 60 - minutes) * 60;
-      clockDisplay.showNumberDecEx(minutes, 0b01000000, true, 2, 0);
-      clockDisplay.showNumberDecEx(seconds, 0b01000000, true, 2, 2);
-      delay(70);
-      digitalWrite(RED_LED_PIN, LOW);
-    }
+  unsigned long startTime = getTime();
 
-    if (timerCounter <= 0) {
+  while (digitalRead(ROTARY_ENCODER_BUTTON_PIN) == HIGH) {
+    unsigned long nowTime = getTime();
+    unsigned long deltaTime = nowTime - startTime;
+    unsigned long remainingTime = waitTime - deltaTime;
+    Serial.print("Start time : "); Serial.println(startTime);
+    Serial.print("Now   time : "); Serial.println(nowTime);
+    Serial.print("Delta time : "); Serial.println(deltaTime);
+    Serial.print("Remaining  : "); Serial.println(remainingTime);
+    displayTime(remainingTime);
+    delay(500);
+    // ledcWrite(RED_LED_PIN, 0);
+
+    if (remainingTime <= 0) {
       musicPlayer.play(3);
       for (int i = 0; i < 9; i++) {
         ledcWrite(RED_LED_PIN, 255);
-        WaitMilliseconds(random(10, 150));
+        waitMilliseconds(random(10, 150));
         digitalWrite(WHITE_LED_PIN, HIGH);
-        WaitMilliseconds(random(10, 150));
+        waitMilliseconds(random(10, 150));
         ledcWrite(RED_LED_PIN, 0);
-        WaitMilliseconds(random(10, 150));
+        waitMilliseconds(random(10, 150));
         digitalWrite(WHITE_LED_PIN, LOW);
-        WaitMilliseconds(random(10, 150));
+        waitMilliseconds(random(10, 150));
       }
       musicPlayer.play(5);
       for (int i = 0; i < 9; i++) {
         ledcWrite(RED_LED_PIN, 255);
-        WaitMilliseconds(random(10, 150));
+        waitMilliseconds(random(10, 150));
         digitalWrite(WHITE_LED_PIN, HIGH);
-        WaitMilliseconds(random(10, 150));
+        waitMilliseconds(random(10, 150));
         ledcWrite(RED_LED_PIN, 0);
-        WaitMilliseconds(random(10, 150));
+        waitMilliseconds(random(10, 150));
         digitalWrite(WHITE_LED_PIN, LOW);
-        WaitMilliseconds(random(10, 150));
+        waitMilliseconds(random(10, 150));
       }
       musicPlayer.play(7);
       for (int i = 0; i < 9; i++) {
         ledcWrite(RED_LED_PIN, 255);
-        WaitMilliseconds(random(10, 150));
+        waitMilliseconds(random(10, 150));
         digitalWrite(WHITE_LED_PIN, HIGH);
-        WaitMilliseconds(random(10, 150));
+        waitMilliseconds(random(10, 150));
         ledcWrite(RED_LED_PIN, 0);
-        WaitMilliseconds(random(10, 150));
+        waitMilliseconds(random(10, 150));
         digitalWrite(WHITE_LED_PIN, LOW);
-        WaitMilliseconds(random(10, 150));
+        waitMilliseconds(random(10, 150));
       }
       break;
     }
   }
 }
 
-void WaitMilliseconds(uint16_t waitTime) {
+unsigned long getTime() {
+  time_t now;
+  getTimeStruct();
+  time(&now);
+  return now;
+}
+
+struct tm getTimeStruct(){
+  struct tm timeinfo;
+  if(!getLocalTime(&timeinfo)) {
+    Serial.println("Failed to obtain time");
+  }
+  return timeinfo;
+}
+
+void displayTime(unsigned long time) {
+  int minutes = time / 60;
+  int seconds = (time / 60 - minutes) * 60;
+  clockDisplay.showNumberDecEx(minutes, 0b01000000, true, 2, 0);
+  clockDisplay.showNumberDecEx(seconds, 0b01000000, true, 2, 2);
+}
+
+void printTime(struct tm timeinfo){
+  Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+}
+
+void waitMilliseconds(uint16_t waitTime) {
   uint32_t start = millis();
   while ((millis() - start) < waitTime) {
     delay(1);
   }
 }
 
-void PrintDetail(uint8_t type, int value) {
+void printDetail(uint8_t type, int value) {
   switch (type) {
     case TimeOut:
       Serial.println(F("Time Out!"));
