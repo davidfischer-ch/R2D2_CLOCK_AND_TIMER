@@ -175,7 +175,8 @@ void loop() {
     inc_red_led = 0;
   }
 
-  delay(1);
+  delay(100);
+
   if ((currentMonth * 30 + monthDay) >= 121 && (currentMonth * 30 + monthDay) < 331) {
     // Change daylight saving time - Summer - change 31/03 at 00:00
     timeClient.setTimeOffset(UTC_OFFSET_SECONDS * UTC);
