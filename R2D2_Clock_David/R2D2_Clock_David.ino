@@ -132,21 +132,21 @@ void loop() {
   clockDisplay.showNumberDecEx(timeClient.getHours(), dots, true, 2, 0);
   clockDisplay.showNumberDecEx(timeClient.getMinutes(), dots, true, 2, 2);
 
+  // Retrieve and print current date time
+  unsigned long epoch = timeClient.getEpochTime();
+  struct tm *ptm = gmtime((time_t *)&epoch);
+  int year = ptm->tm_year + 1900;
+  int month = ptm->tm_mon + 1;
+  int day = ptm->tm_mday;
+
+  Serial.print("Date: ");
+  Serial.print(year);
+  Serial.print(month < 10 ? "-0" : "-");
+  Serial.print(month);
+  Serial.print(day < 10 ? "-0" : "-");
+  Serial.println(day);
   Serial.print("Time: ");
   Serial.println(timeClient.getFormattedTime());
-  unsigned long epochTime = timeClient.getEpochTime();
-  struct tm *ptm = gmtime((time_t *)&epochTime);
-  int currentYear = ptm->tm_year + 1900;
-  Serial.print("Year: ");
-  Serial.println(currentYear);
-
-  int monthDay = ptm->tm_mday;
-  Serial.print("Month day: ");
-  Serial.println(monthDay);
-
-  int currentMonth = ptm->tm_mon + 1;
-  Serial.print("Month: ");
-  Serial.println(currentMonth);
 
   if (musicPlayer.available()) {
     // Print the detail message from DFPlayer to handle different errors and states.
@@ -177,7 +177,7 @@ void loop() {
 
   delay(100);
 
-  if ((currentMonth * 30 + monthDay) >= 121 && (currentMonth * 30 + monthDay) < 331) {
+  if ((month * 30 + day) >= 121 && (month * 30 + day) < 331) {
     // Change daylight saving time - Summer - change 31/03 at 00:00
     timeClient.setTimeOffset(UTC_OFFSET_SECONDS * UTC);
   } else {
