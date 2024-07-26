@@ -128,8 +128,9 @@ void loop() {
   Serial.println(F("Loop!"));
 
   timeClient.update();
-  clockDisplay.showNumberDecEx(timeClient.getHours(), 0b01000000, true, 2, 0);
-  clockDisplay.showNumberDecEx(timeClient.getMinutes(), 0b01000000, true, 2, 2);
+  uint8_t dots = (timeClient.getSeconds() % 2 == 0) ? 0b01000000 : 0;
+  clockDisplay.showNumberDecEx(timeClient.getHours(), dots, true, 2, 0);
+  clockDisplay.showNumberDecEx(timeClient.getMinutes(), dots, true, 2, 2);
 
   Serial.print("Time: ");
   Serial.println(timeClient.getFormattedTime());
