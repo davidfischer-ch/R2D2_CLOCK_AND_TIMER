@@ -185,7 +185,7 @@ void setupTimer() {
   musicPlayer.play(2);
   delay(500);
 
-  unsigned long waitTime = 0;
+  float waitTime = 0;
 
   while (digitalRead(ROTARY_ENCODER_BUTTON_PIN) == HIGH) {
 
@@ -218,7 +218,7 @@ void countdown(unsigned long waitTime) {
     Serial.print("Delta time : "); Serial.println(deltaTime);
     Serial.print("Remaining  : "); Serial.println(remainingTime);
     displayTime(remainingTime);
-    delay(500);
+    delay(200);
     // ledcWrite(RED_LED_PIN, 0);
 
     if (remainingTime <= 0) {
@@ -275,7 +275,7 @@ struct tm getTimeStruct(){
   return timeinfo;
 }
 
-void displayTime(unsigned long time) {
+void displayTime(float time) {
   int minutes = time / 60;
   int seconds = (time / 60 - minutes) * 60;
   clockDisplay.showNumberDecEx(minutes, 0b01000000, true, 2, 0);
