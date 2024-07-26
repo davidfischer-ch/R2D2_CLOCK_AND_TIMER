@@ -164,10 +164,10 @@ void loop() {
     lastButtonPress = millis();
   }
 
-  if (inc_red_led <= 254) {
-    inc_red_led = inc_red_led + 0.1;
+  if (redLedLuminosity < 255) {
+    redLedLuminosity += 0.1;
   } else {
-    inc_red_led = 0;
+    redLedLuminosity = 0;
   }
 
   delay(100);
