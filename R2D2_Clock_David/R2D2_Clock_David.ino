@@ -188,7 +188,6 @@ void setupTimer() {
   float waitTime = 0;
 
   while (digitalRead(ROTARY_ENCODER_BUTTON_PIN) == HIGH) {
-
     if (rotaryEncoder.encoderChanged()) {
       Serial.println(rotaryEncoder.readEncoder());
       waitTime = rotaryEncoder.readEncoder();
@@ -196,7 +195,6 @@ void setupTimer() {
     if (rotaryEncoder.isEncoderButtonClicked()) {
       Serial.println("button pressed");
     }
-
     displayTime(waitTime);
   }
   countdown(waitTime);
